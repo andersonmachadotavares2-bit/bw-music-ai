@@ -1,23 +1,33 @@
-import { pool } from '../config/db.js';
+import { supabaseAdmin } from '../config/supabase.js';
 
-export async function createMusic({ prompt, url }) {
-  const query = `
-    INSERT INTO musics (prompt, url)
-    VALUES ($1, $2)
-    RETURNING id, prompt, url, "createdAt";
-  `;
+export async function createMusic({ prompt, url, userId }) {
+  const { data, error } = await supabaseAdmin
+    .from('musics')
+    .insert({
+      prompt,
+      url,
+      user_id: userId,
+    })
+    .select('id, prompt, url, created_at, user_id')
+    .single();
 
-  const { rows } = await pool.query(query, [prompt, url]);
-  return rows[0];
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  return data;
 }
 
-export async function listMusics() {
-  const query = `
-    SELECT id, prompt, url, "createdAt"
-    FROM musics
-    ORDER BY "createdAt" DESC;
-  `;
+export async function listMusics(userId) {
+  const { data, error } = await supabaseAdmin
+    .from('musics')
+    .select('id, prompt, url, created_at, user_id')
+    .eq('user_id', userId)
+    .order('created_at', { ascending: false });
 
-  const { rows } = await pool.query(query);
-  return rows;
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  return data;
 }
