@@ -1,5 +1,5 @@
 import app from './app.js';
-import { initDatabase } from './config/db.js';
+import { initDatabase } from './config/supabase.js';
 
 const PORT = process.env.PORT || 4000;
 

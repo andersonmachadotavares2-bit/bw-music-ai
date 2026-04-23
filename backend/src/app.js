@@ -1,6 +1,7 @@
 import cors from 'cors';
 import dotenv from 'dotenv';
 import express from 'express';
+import authRoutes from './routes/authRoutes.js';
 import musicRoutes from './routes/musicRoutes.js';
 
 dotenv.config();
@@ -18,6 +19,7 @@ app.get('/health', (_, res) => {
   res.status(200).json({ status: 'ok' });
 });
 
+app.use('/', authRoutes);
 app.use('/', musicRoutes);
 
 export default app;

@@ -6,7 +6,7 @@ import {
 export async function generateMusic(req, res) {
   try {
     const { prompt } = req.body;
-    const result = await generateMusicFromPrompt(prompt ?? '');
+    const result = await generateMusicFromPrompt(prompt ?? '', req.user.id);
     return res.status(201).json(result);
   } catch (error) {
     return res.status(400).json({
@@ -17,7 +17,7 @@ export async function generateMusic(req, res) {
 
 export async function getMusics(req, res) {
   try {
-    const musics = await getGeneratedMusics();
+    const musics = await getGeneratedMusics(req.user.id);
     return res.status(200).json(musics);
   } catch (error) {
     return res.status(500).json({
