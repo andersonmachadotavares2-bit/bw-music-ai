@@ -17,15 +17,23 @@ app.use(
   process.env.FRONTEND_URL,
 ].filter(Boolean);
 
+app.use(
+  cors({
+    origin: (origin, callback) => {
       if (!origin || allowedOrigins.includes(origin)) {
-        callback(null, true);
-      } else {
-        callback(new Error('CORS não permitido'));
+        return callback(null, true);
       }
+
+      return callback(new Error('CORS não permitido'));
     },
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
     credentials: true,
+    optionsSuccessStatus: 204,
   })
 );
+
+app.options('*', cors());
 app.use(express.json());
 
 app.get('/health', (_, res) => {
