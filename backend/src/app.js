@@ -8,10 +8,7 @@ dotenv.config();
 
 const app = express();
 
-app.use(
-  cors({
-    origin: (origin, callback) => {
-      const allowedOrigins = [
+const allowedOrigins = [
   'http://localhost:3000',
   'https://bw-music-ai.vercel.app',
   process.env.FRONTEND_URL,
@@ -34,6 +31,7 @@ app.use(
 );
 
 app.options('*', cors());
+
 app.use(express.json());
 
 app.get('/health', (_, res) => {
