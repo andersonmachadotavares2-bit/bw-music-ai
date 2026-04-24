@@ -18,11 +18,18 @@ export const supabaseAdmin = createClient(supabaseUrl, supabaseServiceRoleKey, {
 });
 
 export async function initDatabase() {
-  const { error } = await supabaseAdmin
-    .from('profiles')
-    .select('id', { count: 'exact', head: true });
+  try {
+    const { error } = await supabaseAdmin
+      .from('profiles')
+      .select('id', { count: 'exact', head: true });
 
-  if (error) {
-    throw new Error(`Falha ao acessar Supabase: ${error.message}`);
+    if (error) {
+      console.warn(`Falha ao acessar Supabase na inicialização: ${error.message}`);
+      return;
+    }
+
+    console.log('Supabase conectado com sucesso');
+  } catch (err) {
+    console.warn(`Erro ao conectar no Supabase: ${err.message}`);
   }
 }
