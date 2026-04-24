@@ -12,9 +12,10 @@ app.use(
   cors({
     origin: (origin, callback) => {
       const allowedOrigins = [
-        'http://localhost:3000',
-        process.env.FRONTEND_URL,
-      ];
+  'http://localhost:3000',
+  'https://bw-music-ai.vercel.app',
+  process.env.FRONTEND_URL,
+].filter(Boolean);
 
       if (!origin || allowedOrigins.includes(origin)) {
         callback(null, true);
