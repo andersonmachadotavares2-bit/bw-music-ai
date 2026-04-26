@@ -134,8 +134,12 @@ if (payload.session) {
     setAuthMessage(
       authMode === 'signup'
         ? 'Conta criada! Verifique seu email para confirmar o cadastro, se exigido no Supabase.'
-        : 'Login realizado com sucesso.'
-    );
+        : 'Login realizado com sucesso.');
+    const { data: sessionData } = await supabase.auth.getSession();
+
+if (sessionData?.session) {
+  setSession(sessionData.session);
+}
     setAuthPassword('');
   }
 
