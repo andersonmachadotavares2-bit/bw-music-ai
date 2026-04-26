@@ -15,17 +15,17 @@ const allowedOrigins = [
 ].filter(Boolean);
 
 const corsOptions = {
-  origin: (origin, callback) => {
+  origin(origin, callback) {
     if (!origin || allowedOrigins.includes(origin)) {
-      return callback(null, true);
+      callback(null, true);
+      return;
     }
 
-    return callback(new Error(`CORS não permitido: ${origin}`));
+    callback(new Error(`CORS bloqueado para origem: ${origin}`));
   },
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
   credentials: true,
-  optionsSuccessStatus: 204,
 };
 
 app.use(cors(corsOptions));
@@ -37,7 +37,7 @@ app.get('/health', (_, res) => {
   res.status(200).json({ status: 'ok' });
 });
 
-app.use('/', authRoutes);
+app.use('/auth', authRoutes);
 app.use('/', musicRoutes);
 
 export default app;
