@@ -1,8 +1,11 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { fetchMusics, generateMusic } from '../lib/api';
 import { supabase } from '../lib/supabase';
+
+const API_URL =
+  process.env.NEXT_PUBLIC_API_URL || 'https://bw-music-ai-production.up.railway.app';
 
 export default function MusicGenerator() {
   const [prompt, setPrompt] = useState('');
@@ -17,9 +20,15 @@ export default function MusicGenerator() {
   const [fullName, setFullName] = useState('');
   const [authMessage, setAuthMessage] = useState('');
 
+  const isSignup = useMemo(() => authMode === 'signup', [authMode]);
+
   useEffect(() => {
+    let mounted = true;
+
     supabase.auth.getSession().then(({ data }) => {
-      setSession(data.session);
+      if (mounted) {
+        setSession(data.session);
+      }
     });
 
     const {
@@ -28,36 +37,43 @@ export default function MusicGenerator() {
       setSession(currentSession);
     });
 
-    return () => subscription.unsubscribe();
+    return () => {
+      mounted = false;
+      subscription.unsubscribe();
+    };
   }, []);
 
   useEffect(() => {
-    if (session) {
-      syncProfile(session);
-      loadMusics();
-    } else {
+    if (!session) {
       setMusics([]);
+      return;
     }
+
+    syncProfile(session);
+    loadMusics();
   }, [session]);
 
-
   async function syncProfile(currentSession) {
-    await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000'}/auth/sync-profile`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${currentSession.access_token}`,
-      },
-    });
+    try {
+      await fetch(`${API_URL}/auth/sync-profile`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${currentSession.access_token}`,
+        },
+      });
+    } catch (err) {
+      console.warn('Não foi possível sincronizar o perfil:', err);
+    }
   }
 
   async function loadMusics() {
     try {
       setError('');
       const data = await fetchMusics();
-      setMusics(data);
+      setMusics(Array.isArray(data) ? data : []);
     } catch (err) {
-      setError(err.message);
+      setError(err.message || 'Erro ao carregar músicas.');
     }
   }
 
@@ -76,7 +92,7 @@ export default function MusicGenerator() {
       setMusics((previous) => [newMusic, ...previous]);
       setPrompt('');
     } catch (err) {
-      setError(err.message);
+      setError(err.message || 'Erro ao gerar música.');
     } finally {
       setLoading(false);
     }
@@ -92,79 +108,94 @@ export default function MusicGenerator() {
       return;
     }
 
-    setAuthLoading(true);
+    try {
+      setAuthLoading(true);
 
-    let result;
+      const endpoint = isSignup ? '/auth/signup' : '/auth/login';
 
-    const endpoint = authMode === 'signup' ? '/auth/signup' : '/auth/login';
+      const response = await fetch(`${API_URL}${endpoint}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          email: authEmail,
+          password: authPassword,
+          fullName,
+        }),
+      });
 
-const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}${endpoint}`, {
-  method: 'POST',
-  headers: {
-    'Content-Type': 'application/json',
-  },
-  body: JSON.stringify({
-    email: authEmail,
-    password: authPassword,
-    fullName,
-  }),
-});
+      const payload = await response.json().catch(() => ({}));
 
-const payload = await response.json();
+      if (!response.ok) {
+        setAuthMessage(payload.message || 'Erro de autenticação.');
+        return;
+      }
 
-result = {
-  data: payload,
-  error: response.ok ? null : { message: payload.message || 'Erro de autenticação.' },
-};
+      if (payload.session?.access_token && payload.session?.refresh_token) {
+        const { data, error: sessionError } = await supabase.auth.setSession({
+          access_token: payload.session.access_token,
+          refresh_token: payload.session.refresh_token,
+        });
 
-if (payload.session) {
-  await supabase.auth.setSession({
-    access_token: payload.session.access_token,
-    refresh_token: payload.session.refresh_token,
-  });
-}
+        if (sessionError) {
+          setAuthMessage(sessionError.message || 'Erro ao salvar sessão.');
+          return;
+        }
 
-    setAuthLoading(false);
+        setSession(data.session || payload.session);
+        setAuthMessage('Login realizado com sucesso.');
+        setAuthPassword('');
+        return;
+      }
 
-    if (result.error) {
-      setAuthMessage(result.error.message);
-      return;
+      setAuthMessage(
+        isSignup
+          ? 'Conta criada! Verifique seu email para confirmar o cadastro.'
+          : 'Login realizado com sucesso.'
+      );
+
+      const { data: sessionData } = await supabase.auth.getSession();
+
+      if (sessionData?.session) {
+        setSession(sessionData.session);
+      }
+
+      setAuthPassword('');
+    } catch (err) {
+      setAuthMessage(err.message || 'Falha ao conectar com o servidor.');
+    } finally {
+      setAuthLoading(false);
     }
-
-    setAuthMessage(
-      authMode === 'signup'
-        ? 'Conta criada! Verifique seu email para confirmar o cadastro, se exigido no Supabase.'
-        : 'Login realizado com sucesso.');
-    const { data: sessionData } = await supabase.auth.getSession();
-
-if (sessionData?.session) {
-  setSession(sessionData.session);
-}
-    setAuthPassword('');
   }
 
   async function handleRecoverPassword() {
     setAuthMessage('');
+    setError('');
 
     if (!authEmail) {
       setAuthMessage('Informe seu email para recuperar a senha.');
       return;
     }
 
-    const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000'}/auth/recover-password`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email: authEmail }),
-    });
+    try {
+      const response = await fetch(`${API_URL}/auth/recover-password`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: authEmail }),
+      });
 
-    const payload = await response.json();
+      const payload = await response.json().catch(() => ({}));
 
-    if (!response.ok) {
-      setAuthMessage(payload.message || 'Erro ao solicitar recuperação.');
-      return;
+      if (!response.ok) {
+        setAuthMessage(payload.message || 'Erro ao solicitar recuperação.');
+        return;
+      }
+
+      setAuthMessage(payload.message || 'Email de recuperação enviado.');
+    } catch (err) {
+      setAuthMessage(err.message || 'Falha ao solicitar recuperação.');
     }
-
-    setAuthMessage(payload.message);
   }
 
   async function handleLogout() {
@@ -174,7 +205,7 @@ if (sessionData?.session) {
       } = await supabase.auth.getSession();
 
       if (currentSession?.access_token) {
-        await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000'}/auth/logout`, {
+        await fetch(`${API_URL}/auth/logout`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -182,8 +213,12 @@ if (sessionData?.session) {
           },
         });
       }
+    } catch (err) {
+      console.warn('Erro ao encerrar sessão no backend:', err);
     } finally {
       await supabase.auth.signOut();
+      setSession(null);
+      setMusics([]);
       setAuthMessage('Logout realizado.');
     }
   }
@@ -196,19 +231,21 @@ if (sessionData?.session) {
           <p className="subtitle">Faça login para gerar músicas personalizadas.</p>
 
           <form className="generator-form" onSubmit={handleAuth}>
-            {authMode === 'signup' && (
+            {isSignup && (
               <input
                 value={fullName}
                 onChange={(event) => setFullName(event.target.value)}
                 placeholder="Nome completo"
               />
             )}
+
             <input
               value={authEmail}
               onChange={(event) => setAuthEmail(event.target.value)}
               placeholder="Email"
               type="email"
             />
+
             <input
               value={authPassword}
               onChange={(event) => setAuthPassword(event.target.value)}
@@ -217,21 +254,27 @@ if (sessionData?.session) {
             />
 
             <button type="submit" disabled={authLoading}>
-              {authLoading
-                ? 'Processando...'
-                : authMode === 'signup'
-                  ? 'Criar conta'
-                  : 'Entrar'}
+              {authLoading ? 'Processando...' : isSignup ? 'Criar conta' : 'Entrar'}
             </button>
           </form>
 
           <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
-            <button type="button" onClick={() => setAuthMode('login')} disabled={authMode === 'login'}>
+            <button
+              type="button"
+              onClick={() => setAuthMode('login')}
+              disabled={authMode === 'login'}
+            >
               Login
             </button>
-            <button type="button" onClick={() => setAuthMode('signup')} disabled={authMode === 'signup'}>
+
+            <button
+              type="button"
+              onClick={() => setAuthMode('signup')}
+              disabled={authMode === 'signup'}
+            >
               Cadastro
             </button>
+
             <button type="button" onClick={handleRecoverPassword}>
               Recuperar senha
             </button>
@@ -249,7 +292,7 @@ if (sessionData?.session) {
       <section className="card">
         <h1>BW Music AI</h1>
         <p className="subtitle">Crie trilhas em segundos com prompts de texto.</p>
-        <p className="subtitle">Logado como {session.user.email}</p>
+        <p className="subtitle">Logado como {session.user?.email}</p>
 
         <button type="button" onClick={handleLogout}>
           Logout
@@ -262,6 +305,7 @@ if (sessionData?.session) {
             placeholder="Ex.: Música eletrônica energética para treino"
             rows={4}
           />
+
           <button type="submit" disabled={loading}>
             {loading ? 'Gerando...' : 'Gerar Música'}
           </button>
@@ -272,6 +316,7 @@ if (sessionData?.session) {
 
       <section className="card">
         <h2>Minhas músicas geradas</h2>
+
         {musics.length === 0 ? (
           <p className="empty">Nenhuma música gerada ainda.</p>
         ) : (
@@ -280,10 +325,9 @@ if (sessionData?.session) {
               <li key={music.id} className="music-item">
                 <div>
                   <p className="prompt">{music.prompt}</p>
-                  <small>
-                    {new Date(music.created_at).toLocaleString('pt-BR')}
-                  </small>
+                  <small>{new Date(music.created_at).toLocaleString('pt-BR')}</small>
                 </div>
+
                 <audio controls src={music.url} preload="none">
                   Seu navegador não suporta o player de áudio.
                 </audio>
