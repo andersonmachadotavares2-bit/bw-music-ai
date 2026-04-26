@@ -96,23 +96,33 @@ export default function MusicGenerator() {
 
     let result;
 
-    if (authMode === 'signup') {
-      result = await supabase.auth.signUp({
-        email: authEmail,
-        password: authPassword,
-        options: {
-          data: {
-            full_name: fullName || null,
-          },
-        },
-      });
+    const endpoint = authMode === 'signup' ? '/auth/signup' : '/auth/login';
 
-    } else {
-      result = await supabase.auth.signInWithPassword({
-        email: authEmail,
-        password: authPassword,
-      });
-    }
+const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}${endpoint}`, {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+  },
+  body: JSON.stringify({
+    email: authEmail,
+    password: authPassword,
+    fullName,
+  }),
+});
+
+const payload = await response.json();
+
+result = {
+  data: payload,
+  error: response.ok ? null : { message: payload.message || 'Erro de autenticação.' },
+};
+
+if (payload.session) {
+  await supabase.auth.setSession({
+    access_token: payload.session.access_token,
+    refresh_token: payload.session.refresh_token,
+  });
+}
 
     setAuthLoading(false);
 
