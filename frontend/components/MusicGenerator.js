@@ -23,29 +23,6 @@ export default function MusicGenerator() {
   const isSignup = useMemo(() => authMode === 'signup', [authMode]);
 
   useEffect(() => {
-    let mounted = true;
-
-    supabase.auth.getSession().then(({ data }) => {
-      if (mounted && data?.session) {
-        setSession(data.session);
-      }
-    });
-
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((_, currentSession) => {
-      if (currentSession) {
-        setSession(currentSession);
-      }
-    });
-
-    return () => {
-      mounted = false;
-      subscription.unsubscribe();
-    };
-  }, []);
-
-  useEffect(() => {
     if (!session?.access_token) {
       setMusics([]);
       return;
@@ -58,10 +35,7 @@ export default function MusicGenerator() {
   async function syncProfile(currentSession) {
     const token = currentSession?.access_token;
 
-    if (!token) {
-      console.warn('Sessão sem access_token. Pulando sync-profile.');
-      return;
-    }
+    if (!token) return;
 
     try {
       const response = await fetch(`${API_URL}/auth/sync-profile`, {
@@ -217,7 +191,6 @@ export default function MusicGenerator() {
     } catch (err) {
       console.warn('Erro ao encerrar sessão no backend:', err);
     } finally {
-      await supabase.auth.signOut();
       setSession(null);
       setMusics([]);
       setAuthMessage('Logout realizado.');
