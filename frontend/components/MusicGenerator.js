@@ -132,22 +132,12 @@ export default function MusicGenerator() {
         return;
       }
 
-      if (payload.session?.access_token && payload.session?.refresh_token) {
-        const { data, error: sessionError } = await supabase.auth.setSession({
-          access_token: payload.session.access_token,
-          refresh_token: payload.session.refresh_token,
-        });
-
-        if (sessionError) {
-          setAuthMessage(sessionError.message || 'Erro ao salvar sessão.');
-          return;
-        }
-
-        setSession(data.session || payload.session);
-        setAuthMessage('Login realizado com sucesso.');
-        setAuthPassword('');
-        return;
-      }
+     if (payload.session?.access_token) {
+  setSession(payload.session);
+  setAuthMessage('Login realizado com sucesso.');
+  setAuthPassword('');
+  return;
+  }
 
       setAuthMessage(
         isSignup
