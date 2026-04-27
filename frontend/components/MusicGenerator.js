@@ -26,7 +26,7 @@ export default function MusicGenerator() {
     let mounted = true;
 
     supabase.auth.getSession().then(({ data }) => {
-      if (mounted) {
+      if (mounted && data?.session) {
         setSession(data.session);
       }
     });
@@ -34,7 +34,9 @@ export default function MusicGenerator() {
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_, currentSession) => {
-      setSession(currentSession);
+      if (currentSession) {
+        setSession(currentSession);
+      }
     });
 
     return () => {
@@ -44,45 +46,45 @@ export default function MusicGenerator() {
   }, []);
 
   useEffect(() => {
-    if (!session) {
+    if (!session?.access_token) {
       setMusics([]);
       return;
     }
 
     syncProfile(session);
-    loadMusics();
+    loadMusics(session.access_token);
   }, [session]);
 
   async function syncProfile(currentSession) {
-  const token = currentSession?.access_token;
+    const token = currentSession?.access_token;
 
-  if (!token) {
-    console.warn('Sessão sem access_token. Pulando sync-profile.');
-    return;
-  }
-
-  try {
-    const response = await fetch(`${API_URL}/auth/sync-profile`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`,
-      },
-    });
-
-    if (!response.ok) {
-      const payload = await response.json().catch(() => ({}));
-      console.warn('Falha ao sincronizar perfil:', payload);
+    if (!token) {
+      console.warn('Sessão sem access_token. Pulando sync-profile.');
+      return;
     }
-  } catch (err) {
-    console.warn('Não foi possível sincronizar o perfil:', err);
-  }
-}
 
-  async function loadMusics() {
+    try {
+      const response = await fetch(`${API_URL}/auth/sync-profile`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (!response.ok) {
+        const payload = await response.json().catch(() => ({}));
+        console.warn('Falha ao sincronizar perfil:', payload);
+      }
+    } catch (err) {
+      console.warn('Não foi possível sincronizar o perfil:', err);
+    }
+  }
+
+  async function loadMusics(accessToken) {
     try {
       setError('');
-      const data = await fetchMusics();
+      const data = await fetchMusics(accessToken);
       setMusics(Array.isArray(data) ? data : []);
     } catch (err) {
       setError(err.message || 'Erro ao carregar músicas.');
@@ -98,9 +100,14 @@ export default function MusicGenerator() {
       return;
     }
 
+    if (!session?.access_token) {
+      setError('Você precisa estar autenticado para usar esta funcionalidade.');
+      return;
+    }
+
     try {
       setLoading(true);
-      const newMusic = await generateMusic(prompt);
+      const newMusic = await generateMusic(prompt, session.access_token);
       setMusics((previous) => [newMusic, ...previous]);
       setPrompt('');
     } catch (err) {
@@ -144,24 +151,18 @@ export default function MusicGenerator() {
         return;
       }
 
-     if (payload.session?.access_token) {
-  setSession(payload.session);
-  setAuthMessage('Login realizado com sucesso.');
-  setAuthPassword('');
-  return;
-  }
+      if (payload.session?.access_token) {
+        setSession(payload.session);
+        setAuthMessage('Login realizado com sucesso.');
+        setAuthPassword('');
+        return;
+      }
 
       setAuthMessage(
         isSignup
           ? 'Conta criada! Verifique seu email para confirmar o cadastro.'
           : 'Login realizado com sucesso.'
       );
-
-      const { data: sessionData } = await supabase.auth.getSession();
-
-      if (sessionData?.session) {
-        setSession(sessionData.session);
-      }
 
       setAuthPassword('');
     } catch (err) {
@@ -202,16 +203,14 @@ export default function MusicGenerator() {
 
   async function handleLogout() {
     try {
-      const {
-        data: { session: currentSession },
-      } = await supabase.auth.getSession();
+      const token = session?.access_token;
 
-      if (currentSession?.access_token) {
+      if (token) {
         await fetch(`${API_URL}/auth/logout`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            console.log('TOKEN:', currentSession.access_token);
+            Authorization: `Bearer ${token}`,
           },
         });
       }
@@ -225,7 +224,7 @@ export default function MusicGenerator() {
     }
   }
 
-  if (!session) {
+  if (!session?.access_token) {
     return (
       <main className="container">
         <section className="card">
@@ -294,7 +293,7 @@ export default function MusicGenerator() {
       <section className="card">
         <h1>BW Music AI</h1>
         <p className="subtitle">Crie trilhas em segundos com prompts de texto.</p>
-        <p className="subtitle">Logado como {session.user?.email}</p>
+        <p className="subtitle">Logado como {session.user?.email || authEmail}</p>
 
         <button type="button" onClick={handleLogout}>
           Logout
