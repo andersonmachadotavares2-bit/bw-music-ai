@@ -8,21 +8,8 @@ dotenv.config();
 
 const app = express();
 
-const allowedOrigins = [
-  'http://localhost:3000',
-  'https://bw-music-ai.vercel.app',
-  process.env.FRONTEND_URL,
-].filter(Boolean);
-
 const corsOptions = {
-  origin(origin, callback) {
-    if (!origin || allowedOrigins.includes(origin)) {
-      callback(null, true);
-      return;
-    }
-
-    callback(new Error(`CORS bloqueado para origem: ${origin}`));
-  },
+  origin: true,
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
   credentials: true,
