@@ -199,7 +199,7 @@ export default function MusicGenerator() {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            Authorization: `Bearer ${currentSession.access_token}`,
+            console.log('TOKEN:', currentSession.access_token);
           },
         });
       }
