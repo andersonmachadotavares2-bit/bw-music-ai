@@ -54,18 +54,30 @@ export default function MusicGenerator() {
   }, [session]);
 
   async function syncProfile(currentSession) {
-    try {
-      await fetch(`${API_URL}/auth/sync-profile`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${currentSession.access_token}`,
-        },
-      });
-    } catch (err) {
-      console.warn('Não foi possível sincronizar o perfil:', err);
-    }
+  const token = currentSession?.access_token;
+
+  if (!token) {
+    console.warn('Sessão sem access_token. Pulando sync-profile.');
+    return;
   }
+
+  try {
+    const response = await fetch(`${API_URL}/auth/sync-profile`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+    });
+
+    if (!response.ok) {
+      const payload = await response.json().catch(() => ({}));
+      console.warn('Falha ao sincronizar perfil:', payload);
+    }
+  } catch (err) {
+    console.warn('Não foi possível sincronizar o perfil:', err);
+  }
+}
 
   async function loadMusics() {
     try {
