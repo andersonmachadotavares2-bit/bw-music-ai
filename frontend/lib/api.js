@@ -1,5 +1,4 @@
-const API_URL =
-  process.env.NEXT_PUBLIC_API_URL || 'https://bw-music-ai-production.up.railway.app';
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://bw-music-ai-production.up.railway.app';
 
 function getAuthHeaders(accessToken) {
   if (!accessToken) {
@@ -8,38 +7,51 @@ function getAuthHeaders(accessToken) {
 
   return {
     'Content-Type': 'application/json',
-    Authorization: `Bearer ${accessToken}`,
+    'Authorization': `Bearer ${accessToken}`,
   };
 }
 
 export async function fetchMusics(accessToken) {
   const headers = getAuthHeaders(accessToken);
 
-  const response = await fetch(`${API_URL}/musics`, {
-    cache: 'no-store',
-    headers,
-  });
+  try {
+    const response = await fetch(`${API_URL}/musics`, {
+      method: 'GET',
+      headers,
+      mode: 'cors',
+    });
 
-  if (!response.ok) {
-    throw new Error('Não foi possível carregar as músicas.');
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.message || 'Não foi possível carregar as músicas.');
+    }
+
+    return response.json();
+  } catch (err) {
+    console.error('Erro ao buscar músicas:', err);
+    throw new Error(err.message === 'Failed to fetch' ? 'Erro de conexão com o servidor. Verifique se o backend está online.' : err.message);
   }
-
-  return response.json();
 }
 
 export async function generateMusic(prompt, accessToken) {
   const headers = getAuthHeaders(accessToken);
 
-  const response = await fetch(`${API_URL}/generate-music`, {
-    method: 'POST',
-    headers,
-    body: JSON.stringify({ prompt }),
-  });
+  try {
+    const response = await fetch(`${API_URL}/generate-music`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ prompt }),
+      mode: 'cors',
+    });
 
-  if (!response.ok) {
-    const error = await response.json().catch(() => ({}));
-    throw new Error(error.message || 'Falha ao gerar música.');
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.message || 'Falha ao gerar música.');
+    }
+
+    return response.json();
+  } catch (err) {
+    console.error('Erro ao gerar música:', err);
+    throw new Error(err.message === 'Failed to fetch' ? 'Erro de conexão com o servidor. Verifique se o backend está online.' : err.message);
   }
-
-  return response.json();
 }

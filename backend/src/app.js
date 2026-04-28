@@ -8,33 +8,21 @@ dotenv.config();
 
 const app = express();
 
-// Configuração de CORS robusta
-const allowedOrigins = [
-  'https://bw-music-ai.vercel.app',
-  'http://localhost:3000',
-  'http://localhost:4000'
-];
-
+// Configuração de CORS simplificada e universal para depuração e estabilização
 app.use(cors({
-  origin: function (origin, callback) {
-    // Permite requisições sem origin (como mobile apps ou curl)
-    if (!origin) return callback(null, true);
-    if (allowedOrigins.indexOf(origin) !== -1 || origin.endsWith('.vercel.app')) {
-      callback(null, true);
-    } else {
-      // Em desenvolvimento, podemos ser mais permissivos se necessário
-      callback(null, true); 
-    }
-  },
-  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin'],
-  credentials: true,
-  preflightContinue: false,
-  optionsSuccessStatus: 204
+  origin: '*', // Permite qualquer origem para eliminar erros de CORS no MVP
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept'],
+  credentials: false // Deve ser false quando origin é '*'
 }));
 
-// Middleware extra para garantir que o preflight (OPTIONS) responda corretamente
-app.options('*', cors());
+// Garante que o preflight responda sempre com 200 OK
+app.options('*', (req, res) => {
+  res.header('Access-Control-Allow-Origin', '*');
+  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Accept');
+  res.sendStatus(200);
+});
 
 app.use(express.json());
 
