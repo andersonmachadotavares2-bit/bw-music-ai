@@ -2,14 +2,14 @@
 
 import { useEffect, useState } from 'react';
 import { fetchMusics, generateMusic } from '../lib/api';
-import { supabase } from '../lib/supabase';
 
 export default function MusicGenerator() {
   const [prompt, setPrompt] = useState('');
   const [musics, setMusics] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [session, setSession] = useState(null);
+  const [user, setUser] = useState(null);
+  const [token, setToken] = useState(null);
   const [authMode, setAuthMode] = useState('login');
   const [authLoading, setAuthLoading] = useState(false);
   const [authEmail, setAuthEmail] = useState('');
@@ -17,27 +17,26 @@ export default function MusicGenerator() {
   const [fullName, setFullName] = useState('');
   const [authMessage, setAuthMessage] = useState('');
 
-  // Sincroniza sessão do Supabase com o estado local
+  const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://bw-music-ai-production.up.railway.app';
+
+  // Tenta recuperar a sessão do localStorage ao carregar
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-    });
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setSession(session);
-    });
-
-    return () => subscription.unsubscribe();
+    const savedToken = localStorage.getItem('bw_music_token');
+    const savedUser = localStorage.getItem('bw_music_user');
+    if (savedToken && savedUser) {
+      setToken(savedToken);
+      setUser(JSON.parse(savedUser));
+    }
   }, []);
 
-  // Carrega músicas quando a sessão estiver disponível
+  // Carrega músicas quando o token estiver disponível
   useEffect(() => {
-    if (session?.access_token) {
-      loadMusics(session.access_token);
+    if (token) {
+      loadMusics(token);
     } else {
       setMusics([]);
     }
-  }, [session]);
+  }, [token]);
 
   async function loadMusics(accessToken) {
     try {
@@ -46,6 +45,9 @@ export default function MusicGenerator() {
       setMusics(Array.isArray(data) ? data : []);
     } catch (err) {
       setError(err.message || 'Erro ao carregar músicas.');
+      if (err.message.includes('autenticado')) {
+        handleLogout();
+      }
     }
   }
 
@@ -58,15 +60,14 @@ export default function MusicGenerator() {
       return;
     }
 
-    if (!session?.access_token) {
+    if (!token) {
       setError('Sessão expirada. Faça login novamente.');
       return;
     }
 
     try {
       setLoading(true);
-      // O backend agora retorna o objeto salvo diretamente (fluxo síncrono MVP)
-      const newMusic = await generateMusic(prompt, session.access_token);
+      const newMusic = await generateMusic(prompt, token);
       setMusics((prev) => [newMusic, ...prev]);
       setPrompt('');
     } catch (err) {
@@ -88,26 +89,32 @@ export default function MusicGenerator() {
 
     try {
       setAuthLoading(true);
-      let result;
-
-      if (authMode === 'signup') {
-        result = await supabase.auth.signUp({
+      const endpoint = authMode === 'signup' ? '/auth/signup' : '/auth/login';
+      
+      const response = await fetch(`${API_URL}${endpoint}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
           email: authEmail,
           password: authPassword,
-          options: { data: { full_name: fullName } }
-        });
-      } else {
-        result = await supabase.auth.signInWithPassword({
-          email: authEmail,
-          password: authPassword,
-        });
-      }
+          fullName: fullName
+        })
+      });
 
-      if (result.error) throw result.error;
+      const result = await response.json();
 
-      if (authMode === 'signup' && !result.data.session) {
-        setAuthMessage('Cadastro realizado! Verifique seu e-mail.');
-      } else {
+      if (!response.ok) throw new Error(result.message || 'Erro na autenticação.');
+
+      if (authMode === 'signup' && !result.session) {
+        setAuthMessage('Cadastro realizado! Verifique seu e-mail para confirmar.');
+      } else if (result.session?.access_token) {
+        const accessToken = result.session.access_token;
+        const userData = result.user;
+        
+        setToken(accessToken);
+        setUser(userData);
+        localStorage.setItem('bw_music_token', accessToken);
+        localStorage.setItem('bw_music_user', JSON.stringify(userData));
         setAuthMessage('Sucesso!');
       }
     } catch (err) {
@@ -118,12 +125,14 @@ export default function MusicGenerator() {
   }
 
   async function handleLogout() {
-    await supabase.auth.signOut();
-    setSession(null);
+    setToken(null);
+    setUser(null);
+    localStorage.removeItem('bw_music_token');
+    localStorage.removeItem('bw_music_user');
     setMusics([]);
   }
 
-  if (!session) {
+  if (!token) {
     return (
       <main className="container">
         <section className="card">
@@ -164,6 +173,7 @@ export default function MusicGenerator() {
             </button>
           </div>
           {authMessage && <p className="subtitle">{authMessage}</p>}
+          {error && <p className="error">{error}</p>}
         </section>
       </main>
     );
@@ -174,9 +184,9 @@ export default function MusicGenerator() {
       <section className="card">
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <h1>BW Music AI</h1>
-          <button onClick={handleLogout} style={{ background: '#f43f5e' }}>Sair</button>
+          <button onClick={handleLogout} style={{ background: '#f43f5e', padding: '5px 15px', borderRadius: '5px', color: 'white', border: 'none', cursor: 'pointer' }}>Sair</button>
         </div>
-        <p className="subtitle">Olá, {session.user.email}</p>
+        <p className="subtitle">Olá, {user?.email}</p>
 
         <form className="generator-form" onSubmit={handleGenerateMusic}>
           <textarea
