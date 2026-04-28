@@ -16,6 +16,7 @@ export default function MusicGenerator() {
   const [authPassword, setAuthPassword] = useState('');
   const [fullName, setFullName] = useState('');
   const [authMessage, setAuthMessage] = useState('');
+  const [pollingInterval, setPollingInterval] = useState(null);
 
   const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://bw-music-ai-production.up.railway.app';
 
@@ -33,6 +34,10 @@ export default function MusicGenerator() {
   useEffect(() => {
     if (token) {
       loadMusics(token);
+      // Inicia o polling para atualizar o status das músicas em geração
+      const interval = setInterval(() => loadMusics(token), 3000); // A cada 3 segundos
+      setPollingInterval(interval);
+      return () => clearInterval(interval);
     } else {
       setMusics([]);
     }
@@ -130,6 +135,17 @@ export default function MusicGenerator() {
     localStorage.removeItem('bw_music_token');
     localStorage.removeItem('bw_music_user');
     setMusics([]);
+    if (pollingInterval) clearInterval(pollingInterval);
+  }
+
+  function getStatusBadge(status) {
+    if (status === 'completed') {
+      return <span className="status-badge completed">✓ Pronta</span>;
+    }
+    if (status === 'pending') {
+      return <span className="status-badge pending">⏳ Gerando...</span>;
+    }
+    return <span className="status-badge">{status}</span>;
   }
 
   if (!token) {
@@ -211,18 +227,50 @@ export default function MusicGenerator() {
           <ul className="music-list">
             {musics.map((music) => (
               <li key={music.id} className="music-item">
-                <div style={{ marginBottom: '10px' }}>
-                  <p className="prompt">{music.prompt}</p>
-                  <small>{new Date(music.created_at).toLocaleString('pt-BR')}</small>
+                <div style={{ marginBottom: '10px', display: 'flex', justifyContent: 'space-between', alignItems: 'start' }}>
+                  <div>
+                    <p className="prompt">{music.prompt}</p>
+                    <small>{new Date(music.created_at).toLocaleString('pt-BR')}</small>
+                  </div>
+                  {getStatusBadge(music.status)}
                 </div>
-                <audio controls src={music.url} style={{ width: '100%' }}>
-                  Seu navegador não suporta áudio.
-                </audio>
+                {music.url ? (
+                  <audio controls src={music.url} style={{ width: '100%' }}>
+                    Seu navegador não suporta áudio.
+                  </audio>
+                ) : (
+                  <div style={{ padding: '10px', background: '#f0f0f0', borderRadius: '5px', textAlign: 'center', color: '#666' }}>
+                    Gerando música... Por favor, aguarde.
+                  </div>
+                )}
               </li>
             ))}
           </ul>
         )}
       </section>
+
+      <style jsx>{`
+        .status-badge {
+          display: inline-block;
+          padding: 4px 8px;
+          border-radius: 4px;
+          font-size: 12px;
+          font-weight: bold;
+        }
+        .status-badge.completed {
+          background-color: #d4edda;
+          color: #155724;
+        }
+        .status-badge.pending {
+          background-color: #fff3cd;
+          color: #856404;
+          animation: pulse 1.5s infinite;
+        }
+        @keyframes pulse {
+          0%, 100% { opacity: 1; }
+          50% { opacity: 0.7; }
+        }
+      `}</style>
     </main>
   );
 }
