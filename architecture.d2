@@ -1,0 +1,43 @@
+direction: right
+
+User: Usuário {
+  shape: person
+}
+
+Frontend: Frontend (Next.js / React) {
+  shape: rectangle
+  style: {
+    fill: "#61DAFB"
+  }
+}
+
+Backend: Backend (Node.js / Express) {
+  shape: rectangle
+  style: {
+    fill: "#68A063"
+  }
+}
+
+Supabase: Supabase (Auth & PostgreSQL) {
+  shape: cylinder
+  style: {
+    fill: "#3ECF8E"
+  }
+}
+
+MockEngine: Mock Music Engine {
+  shape: rectangle
+  style: {
+    fill: "#FF9900"
+  }
+}
+
+User -> Frontend: Interage (Login, Prompt)
+Frontend -> Supabase: Autenticação (Login/Signup)
+Frontend -> Backend: Requisições API (Bearer Token)
+Backend -> Supabase: Validação de Token (Admin)
+Backend -> Supabase: CRUD (Profiles, Musics)
+Backend -> MockEngine: Gera Música (Mock)
+MockEngine -> Backend: Retorna URL da Música
+Backend -> Frontend: Retorna Dados da Música
+Frontend -> User: Exibe Música e Player

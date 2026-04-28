@@ -99,6 +99,8 @@ button:disabled {
   padding: 12px;
   display: grid;
   gap: 10px;
+  will-change: transform;
+  contain: layout style paint;
 }
 
 .prompt {
@@ -114,4 +116,25 @@ small,
 .error {
   margin-top: 12px;
   color: var(--error);
+}
+
+/* Otimizações de Performance */
+html {
+  scroll-behavior: smooth;
+}
+
+img {
+  loading: lazy;
+}
+
+.audio-placeholder {
+  padding: 1rem;
+  background-color: #f0f0f0;
+  border-radius: 4px;
+  text-align: center;
+  color: #666;
+  min-height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }

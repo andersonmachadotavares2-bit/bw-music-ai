@@ -7,15 +7,21 @@
   "scripts": {
     "dev": "nodemon src/server.js",
     "start": "node src/server.js",
-    "check": "node --check src/server.js && node --check src/app.js && node --check src/config/supabase.js && node --check src/controllers/musicController.js && node --check src/controllers/authController.js && node --check src/models/musicModel.js && node --check src/routes/musicRoutes.js && node --check src/routes/authRoutes.js && node --check src/middlewares/authMiddleware.js && node --check src/services/musicService.js"
+    "check": "node --check src/server.js && node --check src/app.js && node --check src/config/supabase.js && node --check src/controllers/musicController.js && node --check src/controllers/authController.js && node --check src/models/musicModel.js && node --check src/routes/musicRoutes.js && node --check src/routes/authRoutes.js && node --check src/middlewares/authMiddleware.js && node --check src/services/musicService.js",
+    "test": "NODE_OPTIONS=--experimental-vm-modules jest --setupFiles ./jest.setup.js"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.57.4",
+    "bull": "^4.16.5",
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",
-    "express": "^4.19.2"
+    "express": "^4.19.2",
+    "ioredis": "^5.10.1",
+    "winston": "^3.19.0"
   },
   "devDependencies": {
-    "nodemon": "^3.1.4"
+    "jest": "^30.3.0",
+    "nodemon": "^3.1.4",
+    "supertest": "^7.2.2"
   }
 }
